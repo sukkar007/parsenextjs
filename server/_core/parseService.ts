@@ -1,5 +1,5 @@
 // @ts-ignore - parse/node doesn't have type definitions
-import Parse from "parse/node";
+import Parse from "parse/node.js";
 import { initializeParse } from "./parseConfig";
 
 // Initialize Parse on module load
