@@ -1,5 +1,5 @@
 // @ts-ignore - parse/node doesn't have type definitions
-import Parse from "parse/node";
+import Parse from "parse/node.js";
 
 /**
  * Initialize Parse with the provided credentials
@@ -7,17 +7,17 @@ import Parse from "parse/node";
  */
 export function initializeParse() {
   Parse.initialize(
-    process.env.PARSE_APP_ID || "mbmRIODb8dv6RfslDMXICBySmNJmToTrqcUHE9Mp",
-    process.env.PARSE_JS_KEY || "3WlzfL60InCRU3N9ABe2WXFgmJTq9UNAEpNkMcMr"
+    process.env.PARSE_APP_ID || "myAppId",
+    process.env.PARSE_JS_KEY || "myJavascriptKey"
   );
 
   Parse.serverURL =
     process.env.PARSE_SERVER_URL ||
-    "https://pg-app-48f9h01vu8tpthu5cwztzjqbuc1qbg.scalabl.cloud/1/";
+    "https://parse-server-example-o1ht.onrender.com/parse";
 
   Parse.masterKey =
     process.env.PARSE_MASTER_KEY ||
-    "Jz5KpkrTDc16Czz1D2tanzWUchp9qJsrNTSMIEYm";
+    "myMasterKey";
 
   // Override the Installation class to prevent currentInstallationId errors
   try {
@@ -47,11 +47,11 @@ export function initializeParse() {
  */
 export function getParseClientConfig() {
   return {
-    appId: process.env.PARSE_APP_ID || "mbmRIODb8dv6RfslDMXICBySmNJmToTrqcUHE9Mp",
-    jsKey: process.env.PARSE_JS_KEY || "3WlzfL60InCRU3N9ABe2WXFgmJTq9UNAEpNkMcMr",
+    appId: process.env.PARSE_APP_ID || "myAppId",
+    jsKey: process.env.PARSE_JS_KEY || "myJavascriptKey",
     serverURL:
       process.env.PARSE_SERVER_URL ||
-      "https://pg-app-48f9h01vu8tpthu5cwztzjqbuc1qbg.scalabl.cloud/1/",
+      "https://parse-server-example-o1ht.onrender.com/parse",
   };
 }
 
