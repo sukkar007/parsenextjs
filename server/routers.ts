@@ -22,6 +22,7 @@ import {
   createGiftWithFiles,
   getAllGifts,
 } from "./_core/parseService";
+import { createSystemLog } from "./_core/logger";
 
 export const appRouter = router({
   // Auth router
@@ -44,9 +45,21 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const user = await loginUser(input.username, input.password);
         
-        if (!user.isAdmin) {
-          throw new Error("غير مصرح لك بالدخول. يلزم صلاحية Admin للوصول إلى لوحة التحكم.");
+        // السماح بالدخول للأدمن والمحررين والمشاهدين
+        const allowedRoles = ['admin', 'administrator', 'editor', 'viewer', 'مدير', 'مسؤول'];
+        const isAllowed = allowedRoles.some(r => user.role?.toLowerCase().includes(r)) || user.isAdmin;
+
+        if (!isAllowed) {
+          throw new Error("غير مصرح لك بالدخول. يرجى التواصل مع الإدارة.");
         }
+
+        // تسجيل عملية الدخول
+        await createSystemLog({
+          adminId: user.id || "unknown",
+          adminName: user.username || "unknown",
+          action: "تسجيل دخول",
+          details: { loginTime: new Date().toISOString() }
+        });
 
         return user;
       }),
