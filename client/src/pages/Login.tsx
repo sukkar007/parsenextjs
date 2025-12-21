@@ -7,6 +7,15 @@ import { Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { APP_LOGO, APP_TITLE } from "@/const";
 
+// الأدوار المسموح بها للدخول
+const ALLOWED_ROLES = ['admin', 'administrator', 'editor', 'viewer', 'مدير', 'مسؤول', 'محرر', 'مشاهد'];
+
+function hasValidRole(role?: string): boolean {
+  if (!role) return false;
+  const normalizedRole = role.toLowerCase().trim();
+  return ALLOWED_ROLES.some(r => normalizedRole.includes(r.toLowerCase()));
+}
+
 export default function Login() {
   const [, setLocation] = useLocation();
   const [isLogin, setIsLogin] = useState(true);
@@ -20,72 +29,76 @@ export default function Login() {
   const registerMutation = trpc.parse.register.useMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  try {
-    if (isLogin) {
-      console.log("Attempting login with:", { username });
+    try {
+      if (isLogin) {
+        console.log("Attempting login with:", { username });
 
-      const user = await loginMutation.mutateAsync({
-  username,
-  password,
-});
+        const user = await loginMutation.mutateAsync({
+          username,
+          password,
+        });
 
-// ✅ احفظ المستخدم ليستعمله useAuth
-localStorage.setItem(
-  "parse-dashboard-user-info",
-  JSON.stringify(user)
-);
-      console.log("Login successful:", user);
-
-      // ✅ تحقق الصلاحية الحقيقي
-      if (!user.isAdmin) {
-        console.error("User is not admin:", user);
-
+        // احفظ المستخدم ليستعمله useAuth
         localStorage.setItem(
-          "login-attempt",
-          JSON.stringify({
-            username,
-            isAdmin: user.isAdmin,
-            timestamp: new Date().toISOString(),
-            allData: user,
-          })
+          "parse-dashboard-user-info",
+          JSON.stringify(user)
         );
+        console.log("Login successful:", user);
 
-        throw new Error("ليس لديك صلاحيات Admin");
+        // تحقق من أن المستخدم لديه دور مسموح به
+        const userRole = user.role?.toLowerCase() || "";
+        const isValidRole = hasValidRole(userRole) || user.isAdmin;
+
+        if (!isValidRole) {
+          console.error("User does not have valid role:", user);
+
+          localStorage.setItem(
+            "login-attempt",
+            JSON.stringify({
+              username,
+              role: user.role,
+              isAdmin: user.isAdmin,
+              timestamp: new Date().toISOString(),
+              allData: user,
+            })
+          );
+
+          throw new Error("ليس لديك صلاحيات للدخول. يرجى التواصل مع الإدارة.");
+        }
+
+        setLocation("/dashboard");
+      } else {
+        await registerMutation.mutateAsync({
+          username,
+          password,
+          email,
+        });
+
+        setLocation("/dashboard");
+      }
+    } catch (err) {
+      console.error("Login/Register error:", err);
+
+      let errorMsg = "حدث خطأ أثناء المحاولة";
+      if (err instanceof Error) {
+        errorMsg = err.message;
+
+        if (errorMsg.includes("Invalid username/password")) {
+          errorMsg = "اسم المستخدم أو كلمة المرور غير صحيحة";
+        } else if (errorMsg.includes("فشل تسجيل الدخول")) {
+          errorMsg = "تعذر الاتصال بالخادم. يرجى المحاولة لاحقاً";
+        }
       }
 
-      setLocation("/dashboard");
-    } else {
-      await registerMutation.mutateAsync({
-        username,
-        password,
-        email,
-      });
-
-      setLocation("/dashboard");
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Login/Register error:", err);
-
-    let errorMsg = "حدث خطأ أثناء المحاولة";
-    if (err instanceof Error) {
-      errorMsg = err.message;
-
-      if (errorMsg.includes("Invalid username/password")) {
-        errorMsg = "اسم المستخدم أو كلمة المرور غير صحيحة";
-      } else if (errorMsg.includes("فشل تسجيل الدخول")) {
-        errorMsg = "تعذر الاتصال بالخادم. يرجى المحاولة لاحقاً";
-      }
-    }
-
-    setError(errorMsg);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   return (
@@ -99,7 +112,7 @@ localStorage.setItem(
             )}
             <h1 className="text-3xl font-bold text-gray-900">{APP_TITLE}</h1>
             <p className="text-gray-600 mt-2">لوحة تحكم المسؤولين</p>
-            <p className="text-sm text-gray-500 mt-1">فقط للمستخدمين الذين لديهم صلاحية Admin</p>
+            <p className="text-sm text-gray-500 mt-1">للمستخدمين المصرح لهم فقط</p>
           </div>
 
           {/* Tabs */}
@@ -207,9 +220,9 @@ localStorage.setItem(
 
           {/* Important Note */}
           {isLogin && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800 text-center">
-                ⚠️ ملاحظة: فقط المستخدمون الذين لديهم صلاحية "Admin" يمكنهم تسجيل الدخول
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 text-center">
+                ℹ️ الأدوار المسموحة: مدير (Admin) - محرر (Editor) - مشاهد (Viewer)
               </p>
             </div>
           )}

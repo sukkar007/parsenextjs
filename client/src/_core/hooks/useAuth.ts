@@ -4,6 +4,22 @@ import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
 
 /* =======================
+   Types
+======================= */
+export type UserRole = "admin" | "editor" | "viewer" | string;
+
+export interface AuthUser {
+  id?: string;
+  username?: string;
+  email?: string;
+  role?: UserRole;
+  isAdmin?: boolean;
+  allowedPages?: string[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/* =======================
    Helpers
 ======================= */
 function isAdminRole(role?: string): boolean {
@@ -18,8 +34,32 @@ function isAdminRole(role?: string): boolean {
   );
 }
 
+function isEditorRole(role?: string): boolean {
+  const normalizedRole = role?.toLowerCase()?.trim() || "";
+  return (
+    normalizedRole === "editor" ||
+    normalizedRole === "محرر" ||
+    normalizedRole.includes("editor")
+  );
+}
+
+function isViewerRole(role?: string): boolean {
+  const normalizedRole = role?.toLowerCase()?.trim() || "";
+  return (
+    normalizedRole === "viewer" ||
+    normalizedRole === "مشاهد" ||
+    normalizedRole.includes("viewer")
+  );
+}
+
+// التحقق من أن المستخدم لديه دور مسموح به للدخول
+function hasValidRole(role?: string): boolean {
+  return isAdminRole(role) || isEditorRole(role) || isViewerRole(role);
+}
+
 type UseAuthOptions = {
   requireAdmin?: boolean;
+  requireEditor?: boolean;
   redirectOnUnauthorized?: boolean;
   redirectPath?: string;
 };
@@ -30,6 +70,7 @@ type UseAuthOptions = {
 export function useAuth(options?: UseAuthOptions) {
   const {
     requireAdmin = false,
+    requireEditor = false,
     redirectOnUnauthorized = false,
     redirectPath = getLoginUrl(),
   } = options ?? {};
@@ -75,7 +116,7 @@ export function useAuth(options?: UseAuthOptions) {
 
   /* ===== Auth State ===== */
   const state = useMemo(() => {
-    let user: any = meQuery.data ?? null;
+    let user: AuthUser | null = meQuery.data ?? null;
 
     // fallback من localStorage
     if (!user && typeof window !== "undefined") {
@@ -92,11 +133,25 @@ export function useAuth(options?: UseAuthOptions) {
     const userRole = user?.role;
     const isAuthenticated = Boolean(user);
     const isAdmin = Boolean(user?.isAdmin ?? isAdminRole(userRole));
+    const isEditor = isEditorRole(userRole);
+    const isViewer = isViewerRole(userRole);
+    const allowedPages = user?.allowedPages || [];
+
+    // تحديد إذا كان المستخدم لديه الصلاحية المطلوبة
+    let hasRequiredRole = true;
+    if (requireAdmin) {
+      hasRequiredRole = isAdmin;
+    } else if (requireEditor) {
+      hasRequiredRole = isAdmin || isEditor;
+    } else {
+      // أي دور مسموح به (admin, editor, viewer)
+      hasRequiredRole = hasValidRole(userRole);
+    }
 
     if (user && typeof window !== "undefined") {
       localStorage.setItem(
         "parse-dashboard-user-info",
-        JSON.stringify({ ...user, isAdmin })
+        JSON.stringify({ ...user, isAdmin, isEditor, isViewer })
       );
     }
 
@@ -106,7 +161,21 @@ export function useAuth(options?: UseAuthOptions) {
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated,
       isAdmin,
-      hasRequiredRole: requireAdmin ? isAdmin : true,
+      isEditor,
+      isViewer,
+      allowedPages,
+      hasRequiredRole,
+      // دالة للتحقق من صلاحية الوصول لصفحة معينة
+      canAccessPage: (pageId: string) => {
+        // الأدمن يمكنه الوصول لكل الصفحات إذا لم يتم تحديد صفحات معينة
+        if (isAdmin && allowedPages.length === 0) return true;
+        // إذا تم تحديد صفحات معينة، تحقق منها
+        if (allowedPages.length > 0) {
+          return allowedPages.includes(pageId);
+        }
+        // المحرر والمشاهد يحتاجون صفحات محددة
+        return false;
+      },
     };
   }, [
     meQuery.data,
@@ -115,6 +184,7 @@ export function useAuth(options?: UseAuthOptions) {
     logoutMutation.error,
     logoutMutation.isPending,
     requireAdmin,
+    requireEditor,
   ]);
 
   /* ===== Redirect Guard ===== */
@@ -129,8 +199,8 @@ export function useAuth(options?: UseAuthOptions) {
       return;
     }
 
-    if (requireAdmin && !state.isAdmin) {
-      alert("غير مصرح لك بالوصول. يجب أن تكون مسؤولاً.");
+    if (!state.hasRequiredRole) {
+      alert("غير مصرح لك بالوصول. ليس لديك الصلاحيات المطلوبة.");
       window.location.href = redirectPath;
     }
   }, [
@@ -138,8 +208,7 @@ export function useAuth(options?: UseAuthOptions) {
     redirectPath,
     state.loading,
     state.isAuthenticated,
-    state.isAdmin,
-    requireAdmin,
+    state.hasRequiredRole,
   ]);
 
   /* ===== API ===== */

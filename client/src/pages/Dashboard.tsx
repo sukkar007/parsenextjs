@@ -119,8 +119,8 @@ export default function Dashboard() {
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [showUserEdit, setShowUserEdit] = useState(false);
 
-  const { user, loading, isAuthenticated, isAdmin, error: authError } = useAuth({ 
-    requireAdmin: true,
+  const { user, loading, isAuthenticated, isAdmin, isEditor, isViewer, allowedPages, canAccessPage, hasRequiredRole, error: authError } = useAuth({ 
+    requireAdmin: false, // السماح لجميع الأدوار المصرح بها
     redirectOnUnauthorized: true 
   });
 
@@ -220,19 +220,32 @@ export default function Dashboard() {
     </div>
   );
 
-  const MenuItem = ({ icon: Icon, label, isActive, onClick }: any) => (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-        isActive
-          ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
-          : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-      }`}
-    >
-      <Icon className="w-5 h-5" />
-      <span className="font-medium">{label}</span>
-    </button>
-  );
+  const MenuItem = ({ icon: Icon, label, isActive, onClick, menuId, disabled }: any) => {
+    // التحقق من صلاحية الوصول لهذه القائمة
+    const hasAccess = menuId ? canAccessMenuItem(menuId) : true;
+    const isDisabled = disabled || !hasAccess;
+    
+    return (
+      <button
+        onClick={isDisabled ? undefined : onClick}
+        disabled={isDisabled}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+          isActive
+            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
+            : isDisabled
+            ? "text-gray-400 cursor-not-allowed opacity-50"
+            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+        }`}
+        title={isDisabled && !hasAccess ? "ليس لديك صلاحية الوصول لهذه الصفحة" : undefined}
+      >
+        <Icon className="w-5 h-5" />
+        <span className="font-medium">{label}</span>
+        {isDisabled && !hasAccess && (
+          <span className="mr-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">مقفل</span>
+        )}
+      </button>
+    );
+  };
 
   if (loading) {
     return (
@@ -245,11 +258,15 @@ export default function Dashboard() {
     );
   }
   
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated || !hasRequiredRole) {
     console.log("Dashboard access denied:", { 
       isAuthenticated, 
-      isAdmin, 
+      isAdmin,
+      isEditor,
+      isViewer,
+      hasRequiredRole,
       userRole: user?.role,
+      allowedPages,
       authError 
     });
     
@@ -265,7 +282,7 @@ export default function Dashboard() {
           <p className="text-gray-600 mb-4">
             {!isAuthenticated 
               ? "لم تقم بتسجيل الدخول بعد." 
-              : `صلاحيتك الحالية: ${user?.role || 'غير محددة'}. يجب أن تكون مسؤولاً للوصول إلى هذه الصفحة.`}
+              : `صلاحيتك الحالية: ${user?.role || 'غير محددة'}. يجب أن يكون لديك دور مصرح به (admin, editor, viewer) للوصول.`}
           </p>
           <div className="space-y-3">
             <Button onClick={() => setLocation("/login")} className="w-full">
@@ -283,6 +300,24 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // دالة للتحقق من صلاحية الوصول لقائمة معينة
+  const canAccessMenuItem = (menuId: string) => {
+    // الأدمن بدون صفحات محددة يمكنه الوصول لكل شيء
+    if (isAdmin && allowedPages.length === 0) return true;
+    // إذا تم تحديد صفحات معينة، تحقق منها
+    if (allowedPages.length > 0) {
+      return allowedPages.includes(menuId);
+    }
+    // المحرر والمشاهد بدون صفحات محددة لا يمكنهم الوصول
+    return false;
+  };
+
+  // دالة للتحقق من إمكانية التعديل (للمحرر والأدمن فقط)
+  const canEdit = isAdmin || isEditor;
+  
+  // دالة للتحقق من إمكانية الحذف (للأدمن فقط)
+  const canDelete = isAdmin;
 // في Dashboard.tsx، تحديث quickStats:
 
 const quickStats = {
@@ -912,126 +947,147 @@ case "withdrawals":
               <MenuItem
                 icon={Home}
                 label="Dashboard"
+                menuId="dashboard"
                 isActive={activeMenu === "dashboard"}
                 onClick={() => setActiveMenu("dashboard")}
               />
 			  <MenuItem
   icon={Tag}
   label="Categories"
+  menuId="categories"
   isActive={activeMenu === "categories"}
   onClick={() => setActiveMenu("categories")}
 />
 <MenuItem
   icon={Megaphone}
   label="Announcements"
+  menuId="announcements"
   isActive={activeMenu === "announcements"}
   onClick={() => setActiveMenu("announcements")}
 />
 <MenuItem
   icon={Radio}
   label="Ads"
+  menuId="ads"
   isActive={activeMenu === "ads"}
   onClick={() => setActiveMenu("ads")}
 />
 <MenuItem
   icon={Users}
   label="Encounters"
+  menuId="encounters"
   isActive={activeMenu === "encounters"}
   onClick={() => setActiveMenu("encounters")}
 />
 <MenuItem
   icon={Trophy}
   label="Challenges"
+  menuId="challenges"
   isActive={activeMenu === "challenges"}
   onClick={() => setActiveMenu("challenges")}
 />
 <MenuItem
   icon={Zap}
   label="Entrance Effects"
+  menuId="entrance-effects"
   isActive={activeMenu === "entrance-effects"}
   onClick={() => setActiveMenu("entrance-effects")}
 />
 <MenuItem
   icon={PartyPopper}
   label="Party Themes"
+  menuId="party-themes"
   isActive={activeMenu === "party-themes"}
   onClick={() => setActiveMenu("party-themes")}
 />
 <MenuItem
   icon={MessageSquare}
   label="Comments"
+  menuId="comments"
   isActive={activeMenu === "comments"}
   onClick={() => setActiveMenu("comments")}
 />
 <MenuItem
   icon={Phone}
   label="Calls"
+  menuId="calls"
   isActive={activeMenu === "calls"}
   onClick={() => setActiveMenu("calls")}
 />
 <MenuItem
   icon={MousePointerClick}
   label="Clicks"
+  menuId="clicks"
   isActive={activeMenu === "clicks"}
   onClick={() => setActiveMenu("clicks")}
 />
 <MenuItem
   icon={FileText}
   label="Posts"
+  menuId="posts"
   isActive={activeMenu === "posts"}
   onClick={() => setActiveMenu("posts")}
 />
 <MenuItem
   icon={Video}
   label="Streaming"
+  menuId="streaming"
   isActive={activeMenu === "streaming"}
   onClick={() => setActiveMenu("streaming")}
 />
 <MenuItem
   icon={Film}
   label="Videos"
+  menuId="videos"
   isActive={activeMenu === "videos"}
   onClick={() => setActiveMenu("videos")}
 />
 <MenuItem
   icon={CreditCard}
   label="Withdrawals"
+  menuId="withdrawals"
   isActive={activeMenu === "withdrawals"}
   onClick={() => setActiveMenu("withdrawals")}
 />
               <MenuItem
                 icon={Users}
                 label="Users Management"
+                menuId="users"
                 isActive={activeMenu === "users"}
                 onClick={() => setActiveMenu("users")}
               />
               <MenuItem
                 icon={ImageIcon}
                 label="Avatar Frames"
+                menuId="frames"
                 isActive={activeMenu === "frames"}
                 onClick={() => setActiveMenu("frames")}
               />
               <MenuItem
                 icon={Gift}
                 label="Gifts Management"
+                menuId="gifts"
                 isActive={activeMenu === "gifts"}
                 onClick={() => setActiveMenu("gifts")}
               />
               <MenuItem
                 icon={Database}
                 label="Data Management"
+                menuId="data"
                 isActive={activeMenu === "data"}
                 onClick={() => setActiveMenu("data")}
               />
 			  <MenuItem
   icon={MessageSquare}
   label="Messages"
+  menuId="messages"
   isActive={activeMenu === "messages"}
   onClick={() => setActiveMenu("messages")}
 />
               <MenuItem
                 icon={Settings}
                 label="Settings"
+                menuId="settings"
                 isActive={activeMenu === "settings"}
                 onClick={() => setActiveMenu("settings")}
               />
@@ -1044,12 +1100,14 @@ case "withdrawals":
                 <MenuItem
                   icon={UserCog}
                   label="إدارة المشرفين"
+                  menuId="admin-management"
                   isActive={activeMenu === "admin-management"}
                   onClick={() => setActiveMenu("admin-management")}
                 />
                 <MenuItem
                   icon={FileText}
                   label="سجل النظام"
+                  menuId="system-logs"
                   isActive={activeMenu === "system-logs"}
                   onClick={() => setActiveMenu("system-logs")}
                 />
