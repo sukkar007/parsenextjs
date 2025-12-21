@@ -83,6 +83,10 @@ import VideosManagement from "@/components/VideosManagement";
 import WithdrawalsManagement from "@/components/WithdrawalsManagement";
 import AdminManagement from "@/components/AdminManagement";
 import SystemLogs from "@/components/SystemLogs";
+import StoriesManagement from "@/components/StoriesManagement";
+import FollowManagement from "@/components/FollowManagement";
+import FavoritesManagement from "@/components/FavoritesManagement";
+import VisitsManagement from "@/components/VisitsManagement";
 
 type MenuOption = 
   | "dashboard" 
@@ -107,7 +111,11 @@ type MenuOption =
   | "data" 
   | "settings"
   | "admin-management"
-  | "system-logs";
+  | "system-logs"
+  | "stories"
+  | "follow"
+  | "favorites"
+  | "visits";
   
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -765,6 +773,14 @@ case "videos":
   return <VideosManagement />;
 case "withdrawals":
   return <WithdrawalsManagement />;
+case "stories":
+  return <StoriesManagement />;
+case "follow":
+  return <FollowManagement />;
+case "favorites":
+  return <FavoritesManagement />;
+case "visits":
+  return <VisitsManagement />;
       case "users":
         return <UsersManagement />;
       case "frames":
@@ -1048,6 +1064,34 @@ case "withdrawals":
   menuId="withdrawals"
   isActive={activeMenu === "withdrawals"}
   onClick={() => setActiveMenu("withdrawals")}
+/>
+<MenuItem
+  icon={PlayCircle}
+  label="Stories"
+  menuId="stories"
+  isActive={activeMenu === "stories"}
+  onClick={() => setActiveMenu("stories")}
+/>
+<MenuItem
+  icon={UserPlus}
+  label="Follow"
+  menuId="follow"
+  isActive={activeMenu === "follow"}
+  onClick={() => setActiveMenu("follow")}
+/>
+<MenuItem
+  icon={Star}
+  label="Favorites"
+  menuId="favorites"
+  isActive={activeMenu === "favorites"}
+  onClick={() => setActiveMenu("favorites")}
+/>
+<MenuItem
+  icon={Eye}
+  label="Visits"
+  menuId="visits"
+  isActive={activeMenu === "visits"}
+  onClick={() => setActiveMenu("visits")}
 />
               <MenuItem
                 icon={Users}
