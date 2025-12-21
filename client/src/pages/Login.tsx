@@ -20,32 +20,73 @@ export default function Login() {
   const registerMutation = trpc.parse.register.useMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      if (isLogin) {
-        await loginMutation.mutateAsync({
-          username,
-          password,
-        });
-      } else {
-        await registerMutation.mutateAsync({
-          username,
-          password,
-          email,
-        });
+  try {
+    if (isLogin) {
+      console.log("Attempting login with:", { username });
+
+      const user = await loginMutation.mutateAsync({
+  username,
+  password,
+});
+
+// ✅ احفظ المستخدم ليستعمله useAuth
+localStorage.setItem(
+  "parse-dashboard-user-info",
+  JSON.stringify(user)
+);
+      console.log("Login successful:", user);
+
+      // ✅ تحقق الصلاحية الحقيقي
+      if (!user.isAdmin) {
+        console.error("User is not admin:", user);
+
+        localStorage.setItem(
+          "login-attempt",
+          JSON.stringify({
+            username,
+            isAdmin: user.isAdmin,
+            timestamp: new Date().toISOString(),
+            allData: user,
+          })
+        );
+
+        throw new Error("ليس لديك صلاحيات Admin");
       }
+
       setLocation("/dashboard");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "حدث خطأ أثناء المحاولة"
-      );
-    } finally {
-      setLoading(false);
+    } else {
+      await registerMutation.mutateAsync({
+        username,
+        password,
+        email,
+      });
+
+      setLocation("/dashboard");
     }
-  };
+  } catch (err) {
+    console.error("Login/Register error:", err);
+
+    let errorMsg = "حدث خطأ أثناء المحاولة";
+    if (err instanceof Error) {
+      errorMsg = err.message;
+
+      if (errorMsg.includes("Invalid username/password")) {
+        errorMsg = "اسم المستخدم أو كلمة المرور غير صحيحة";
+      } else if (errorMsg.includes("فشل تسجيل الدخول")) {
+        errorMsg = "تعذر الاتصال بالخادم. يرجى المحاولة لاحقاً";
+      }
+    }
+
+    setError(errorMsg);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -57,7 +98,8 @@ export default function Login() {
               <img src={APP_LOGO} alt={APP_TITLE} className="h-12 mx-auto mb-4" />
             )}
             <h1 className="text-3xl font-bold text-gray-900">{APP_TITLE}</h1>
-            <p className="text-gray-600 mt-2">لوحة تحكم Parse</p>
+            <p className="text-gray-600 mt-2">لوحة تحكم المسؤولين</p>
+            <p className="text-sm text-gray-500 mt-1">فقط للمستخدمين الذين لديهم صلاحية Admin</p>
           </div>
 
           {/* Tabs */}
@@ -162,6 +204,53 @@ export default function Login() {
               )}
             </Button>
           </form>
+
+          {/* Important Note */}
+          {isLogin && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800 text-center">
+                ⚠️ ملاحظة: فقط المستخدمون الذين لديهم صلاحية "Admin" يمكنهم تسجيل الدخول
+              </p>
+            </div>
+          )}
+
+          {/* Debug Button */}
+          <div className="mt-4 text-center">
+            <button 
+              type="button"
+              onClick={() => {
+                // فتح نافذة جديدة لعرض بيانات التشخيص
+                const debugWindow = window.open('', '_blank');
+                if (debugWindow) {
+                  const loginAttempt = localStorage.getItem('login-attempt');
+                  debugWindow.document.write(`
+                    <html>
+                      <head>
+                        <title>Debug Info</title>
+                        <style>
+                          body { font-family: Arial, sans-serif; padding: 20px; }
+                          pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow: auto; }
+                        </style>
+                      </head>
+                      <body>
+                        <h1>معلومات التشخيص</h1>
+                        <h2>Login Attempt:</h2>
+                        <pre>${loginAttempt || 'No login attempt found'}</pre>
+                        <h2>LocalStorage:</h2>
+                        <pre>${JSON.stringify({
+                          'parse-dashboard-user-info': localStorage.getItem('parse-dashboard-user-info'),
+                          'manus-runtime-user-info': localStorage.getItem('manus-runtime-user-info'),
+                        }, null, 2)}</pre>
+                      </body>
+                    </html>
+                  `);
+                }
+              }}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              مشاكل في التسجيل؟ اضغط هنا للتشخيص
+            </button>
+          </div>
 
           {/* Footer */}
           <p className="text-center text-sm text-gray-600 mt-6">

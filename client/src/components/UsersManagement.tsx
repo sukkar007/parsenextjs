@@ -1,4 +1,4 @@
-// components/UsersManagement.tsx
+// client/src/components/UsersManagement.tsx
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,13 +19,11 @@ import {
   Trash2,
   Eye,
   UserPlus,
-  Shield,
   Mail,
   Calendar,
   UserCheck,
   UserX,
   RefreshCw,
-  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";

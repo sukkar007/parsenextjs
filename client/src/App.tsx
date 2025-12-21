@@ -8,24 +8,31 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 
+// استيراد مكونات الإدارة
+import CategoriesManagement from "./components/CategoriesManagement";
+import AddCategory from "./components/AddCategory";
+import EditCategory from "./components/EditCategory";
+import ViewCategory from "./components/ViewCategory";
+
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
       <Route path={"/dashboard"} component={Dashboard} />
+      
+      {/* مسارات إدارة الفئات */}
+      <Route path={"/admin/categories"} component={CategoriesManagement} />
+      <Route path={"/admin/categories/add"} component={AddCategory} />
+      <Route path={"/admin/categories/edit"} component={EditCategory} />
+      <Route path={"/admin/categories/view"} component={ViewCategory} />
+      
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
 }
-
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
   return (

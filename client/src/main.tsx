@@ -10,30 +10,45 @@ import "./index.css";
 
 const queryClient = new QueryClient();
 
-const redirectToLoginIfUnauthorized = (error: unknown) => {
+const handleApiError = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
+  
+  console.error("[API Error Details]", {
+    message: error.message,
+    code: error.data?.code,
+    path: error.data?.path,
+    stack: error.stack
+  });
 
+  // ✅ التحقق من أخطاء role (ليست admin)
+  const isNotAdminError = error.message.includes("مسؤول") || 
+                          error.message.includes("Admin") || 
+                          error.message.includes("صلاحية");
+  
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
-  if (!isUnauthorized) return;
-
-  window.location.href = getLoginUrl();
+  
+  // إذا لم يكن المستخدم admin أو غير مصرح له
+  if (isNotAdminError || isUnauthorized) {
+    // عرض رسالة للمستخدم
+    alert(error.message || "غير مصرح لك بالوصول إلى هذه الصفحة.");
+    
+    // إعادة التوجيه إلى صفحة تسجيل الدخول
+    window.location.href = getLoginUrl();
+  }
 };
 
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
-    redirectToLoginIfUnauthorized(error);
-    console.error("[API Query Error]", error);
+    handleApiError(error);
   }
 });
 
 queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
-    redirectToLoginIfUnauthorized(error);
-    console.error("[API Mutation Error]", error);
+    handleApiError(error);
   }
 });
 

@@ -1,3 +1,4 @@
+// server/_core/parseConfig.ts
 // @ts-ignore - parse/node doesn't have type definitions
 import Parse from "parse/node.js";
 
@@ -8,7 +9,8 @@ import Parse from "parse/node.js";
 export function initializeParse() {
   Parse.initialize(
     process.env.PARSE_APP_ID || "myAppId",
-    process.env.PARSE_JS_KEY || "myJavascriptKey"
+    process.env.PARSE_JS_KEY || "myJavascriptKey",
+    process.env.PARSE_MASTER_KEY || "myMasterKey"  // أضف Master Key هنا
   );
 
   Parse.serverURL =
@@ -19,26 +21,9 @@ export function initializeParse() {
     process.env.PARSE_MASTER_KEY ||
     "myMasterKey";
 
-  // Override the Installation class to prevent currentInstallationId errors
-  try {
-    const OriginalInstallation = Parse.Installation;
-    Parse.Installation = class extends OriginalInstallation {
-      static currentInstallationId() {
-        return null;
-      }
-      
-      static async currentInstallation() {
-        return null;
-      }
-    };
-  } catch (e) {
-    // If Installation doesn't exist, create a mock
-    Parse.Installation = Parse.Object.extend("_Installation", {}, {
-      currentInstallationId: () => null,
-      currentInstallation: async () => null,
-    });
-  }
-
+  // Enable Cloud Code to use master key globally
+  Parse.Cloud.useMasterKey();
+  
   console.log("[Parse] Initialized with server URL:", Parse.serverURL);
 }
 
