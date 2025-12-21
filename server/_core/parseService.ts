@@ -226,7 +226,8 @@ export async function loginUser(
   username: user.get("username"),
   email: user.get("email"),
   role: userRole,
-  isAdmin: isUserAdmin(userRole), // ✅ هذا هو الصح
+  allowedPages: user.get("allowedPages") || [],
+  isAdmin: isUserAdmin(userRole),
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 };
@@ -294,6 +295,7 @@ export async function getAllUsers(): Promise<ParseUser[]> {
         username: user.get("username"),
         email: user.get("email"),
         role: userRole,
+        allowedPages: user.get("allowedPages") || [],
         isAdmin: isUserAdmin(userRole),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -344,6 +346,8 @@ export async function updateUser(
       username: updatedUser.get("username"),
       email: updatedUser.get("email"),
       role: userRole,
+      allowedPages: updatedUser.get("allowedPages") || [],
+      isAdmin: isUserAdmin(userRole),
       createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt,
     };
