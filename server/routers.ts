@@ -779,6 +779,28 @@ export const appRouter = router({
         return filtered.slice(input.skip || 0, (input.skip || 0) + (input.limit || 100));
       }),
 
+    // System Logs - جلب سجلات النظام
+    getSystemLogs: publicProcedure.query(async () => {
+      try {
+        const logs = await queryClass("SystemLog", 500);
+        return logs.sort((a: any, b: any) => 
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        ).map((log: any) => ({
+          id: log.objectId || log.id,
+          adminId: log.adminId,
+          adminName: log.adminName,
+          action: log.action,
+          entityType: log.entityType,
+          entityId: log.entityId,
+          details: log.details,
+          createdAt: log.createdAt,
+        }));
+      } catch (error) {
+        console.error("Error fetching system logs:", error);
+        return [];
+      }
+    }),
+
     // Test connection
     testConnection: publicProcedure.query(async () => {
       try {

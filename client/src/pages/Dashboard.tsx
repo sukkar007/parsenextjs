@@ -81,6 +81,8 @@ import PostsManagement from "@/components/PostsManagement";
 import StreamingManagement from "@/components/StreamingManagement";
 import VideosManagement from "@/components/VideosManagement";
 import WithdrawalsManagement from "@/components/WithdrawalsManagement";
+import AdminManagement from "@/components/AdminManagement";
+import SystemLogs from "@/components/SystemLogs";
 
 type MenuOption = 
   | "dashboard" 
@@ -103,7 +105,9 @@ type MenuOption =
   | "frames" 
   | "gifts" 
   | "data" 
-  | "settings";
+  | "settings"
+  | "admin-management"
+  | "system-logs";
   
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -807,6 +811,10 @@ case "withdrawals":
             </Card>
           </div>
         );
+      case "admin-management":
+        return <AdminManagement />;
+      case "system-logs":
+        return <SystemLogs />;
       default:
         return (
           <div className="text-center py-12">
@@ -1027,6 +1035,25 @@ case "withdrawals":
                 isActive={activeMenu === "settings"}
                 onClick={() => setActiveMenu("settings")}
               />
+              
+              {/* قسم إدارة النظام */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-4">
+                  إدارة النظام
+                </h3>
+                <MenuItem
+                  icon={UserCog}
+                  label="إدارة المشرفين"
+                  isActive={activeMenu === "admin-management"}
+                  onClick={() => setActiveMenu("admin-management")}
+                />
+                <MenuItem
+                  icon={FileText}
+                  label="سجل النظام"
+                  isActive={activeMenu === "system-logs"}
+                  onClick={() => setActiveMenu("system-logs")}
+                />
+              </div>
             </nav>
 
             <div className="mt-8 pt-6 border-t border-gray-200">
