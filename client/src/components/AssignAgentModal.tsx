@@ -36,24 +36,24 @@ interface AssignAgentModalProps {
 export default function AssignAgentModal({ open, onClose, onSuccess }: AssignAgentModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
+  const utils = trpc.useUtils();  
 
   const { data: allUsers = [], isLoading: loadingUsers } = trpc.parse.getAllUsers.useQuery();
   const { data: agents = [] } = trpc.parse.getAgents.useQuery();
 
   const assignAgentMutation = trpc.parse.assignAgentRole.useMutation({
-    onSuccess: async () => {
-  toast.success("تم تعيين الوكيل بنجاح");
+  onSuccess: async () => {
+    toast.success("تم تعيين الوكيل بنجاح");
 
-  await utils.parse.getAgents.invalidate();
-  await utils.parse.getAllUsers.invalidate(); // مهم جداً
+    await utils.parse.getAgents.invalidate();
+    await utils.parse.getAllUsers.invalidate();
+  },  // 👈 هنا كانت ناقصه الفاصلة
 
-  refetchAgents();
-}
+  onError: (error) => {
+    toast.error(`فشل تعيين الوكيل: ${error.message}`);
+  },
+});
 
-    onError: (error) => {
-      toast.error(`فشل تعيين الوكيل: ${error.message}`);
-    },
-  });
 
   // Filter users who are not already agents
   const agentIds = agents.map((a: any) => a.id);
