@@ -297,6 +297,8 @@ export async function getAllUsers(): Promise<ParseUser[]> {
         role: userRole,
         allowedPages: user.get("allowedPages") || [],
         isAdmin: isUserAdmin(userRole),
+        agency_role: user.get("agency_role"),     // 👈 هذا أهم سطر
+
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
