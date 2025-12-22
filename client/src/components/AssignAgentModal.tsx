@@ -41,13 +41,15 @@ export default function AssignAgentModal({ open, onClose, onSuccess }: AssignAge
   const { data: agents = [] } = trpc.parse.getAgents.useQuery();
 
   const assignAgentMutation = trpc.parse.assignAgentRole.useMutation({
-    onSuccess: () => {
-      toast.success("تم تعيين الوكيل بنجاح");
-      setSelectedUserId("");
-      setSearchQuery("");
-      onSuccess?.();
-      onClose();
-    },
+    onSuccess: async () => {
+  toast.success("تم تعيين الوكيل بنجاح");
+
+  await utils.parse.getAgents.invalidate();
+  await utils.parse.getAllUsers.invalidate(); // مهم جداً
+
+  refetchAgents();
+}
+
     onError: (error) => {
       toast.error(`فشل تعيين الوكيل: ${error.message}`);
     },
