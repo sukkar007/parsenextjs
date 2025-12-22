@@ -823,6 +823,408 @@ export const appRouter = router({
         };
       }
     }),
+
+    // ==================== Agency Management ====================
+    
+    // Get all agents (users with agency_role = 'agent')
+    getAgents: publicProcedure.query(async () => {
+      try {
+        const users = await getAllUsers();
+        const agencyMembers = await queryClass("AgencyMember", 1000);
+        
+        // Filter users who are agents
+        const agents = users.filter((user: any) => 
+          user.agency_role === 'agent' || user.agencyRole === 'agent'
+        );
+        
+        // Count members for each agent
+        return agents.map((agent: any) => {
+          const membersCount = agencyMembers.filter((m: any) => 
+            m.agent_id === agent.id || m.agent?.objectId === agent.id
+          ).length;
+          
+          return {
+            id: agent.id,
+            name: agent.name,
+            username: agent.username,
+            email: agent.email,
+            avatar: agent.avatar?.url || agent.avatar?._url || agent.avatar,
+            agency_role: agent.agency_role || agent.agencyRole,
+            diamondsAgency: agent.diamondsAgency || 0,
+            diamondsAgencyTotal: agent.diamondsAgencyTotal || 0,
+            membersCount,
+            createdAt: agent.createdAt,
+          };
+        });
+      } catch (error) {
+        console.error("Error fetching agents:", error);
+        return [];
+      }
+    }),
+
+    // Get agency members
+    getAgencyMembers: publicProcedure.query(async () => {
+      try {
+        const members = await queryClass("AgencyMember", 1000);
+        return members.sort((a: any, b: any) => 
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+      } catch (error) {
+        console.error("Error fetching agency members:", error);
+        return [];
+      }
+    }),
+
+    // Get agency invitations
+    getAgencyInvitations: publicProcedure.query(async () => {
+      try {
+        const invitations = await queryClass("AgencyInvitation", 1000);
+        return invitations.sort((a: any, b: any) => 
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+      } catch (error) {
+        console.error("Error fetching agency invitations:", error);
+        return [];
+      }
+    }),
+
+    // Send agency invitation
+    sendAgencyInvitation: publicProcedure
+      .input(z.object({
+        agentId: z.string(),
+        hostId: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          console.log("[Agency] Sending invitation - Agent:", input.agentId, "Host:", input.hostId);
+          
+          // Check if invitation already exists
+          const existingInvitations = await queryClass("AgencyInvitation", 1000);
+          const exists = existingInvitations.some((inv: any) => 
+            (inv.agent_id === input.agentId || inv.agent?.objectId === input.agentId) &&
+            (inv.host_id === input.hostId || inv.host?.objectId === input.hostId) &&
+            inv.invitation_status === 'pending'
+          );
+          
+          if (exists) {
+            throw new Error("يوجد دعوة معلقة بالفعل لهذا المضيف");
+          }
+          
+          // Check if host is already a member of any agency
+          const existingMembers = await queryClass("AgencyMember", 1000);
+          const isAlreadyMember = existingMembers.some((m: any) => 
+            (m.host_id === input.hostId || m.host?.objectId === input.hostId) &&
+            m.client_status === "joined"
+          );
+          
+          if (isAlreadyMember) {
+            throw new Error("هذا المضيف منضم بالفعل لوكالة أخرى");
+          }
+          
+          // Create invitation with both ID and pointer references
+          const invitation = await createObject("AgencyInvitation", {
+            agent_id: input.agentId,
+            host_id: input.hostId,
+            invitation_status: "pending",
+          });
+          
+          console.log("[Agency] Invitation created:", invitation.id);
+          
+          // Log the action
+          const currentUser = await getCurrentUser();
+          await createSystemLog({
+            adminId: currentUser?.id || "unknown",
+            adminName: currentUser?.username || "unknown",
+            action: "إرسال دعوة وكالة",
+            entityType: "AgencyInvitation",
+            entityId: invitation.id,
+            details: { agentId: input.agentId, hostId: input.hostId }
+          });
+          
+          return invitation;
+        } catch (error) {
+          console.error("Error sending agency invitation:", error);
+          throw error;
+        }
+      }),
+
+    // Update agency invitation status
+    updateAgencyInvitation: publicProcedure
+      .input(z.object({
+        invitationId: z.string(),
+        status: z.enum(["accepted", "declined"]),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          // Get invitation details first
+          const invitations = await queryClass("AgencyInvitation", 1000);
+          const invitation = invitations.find((inv: any) => 
+            inv.objectId === input.invitationId || inv.id === input.invitationId
+          );
+          
+          if (!invitation) {
+            throw new Error("الدعوة غير موجودة");
+          }
+          
+          // Update invitation status
+          const updatedInvitation = await updateObject("AgencyInvitation", input.invitationId, {
+            invitation_status: input.status,
+          });
+          
+          // If accepted, create agency member and update user
+          if (input.status === "accepted") {
+            const agentId = invitation.agent_id || invitation.agent?.objectId;
+            const hostId = invitation.host_id || invitation.host?.objectId;
+            
+            console.log("[Agency] Creating member - Agent:", agentId, "Host:", hostId);
+            
+            if (!agentId || !hostId) {
+              throw new Error("معرف الوكيل أو المضيف غير موجود");
+            }
+            
+            // Check if member already exists
+            const existingMembers = await queryClass("AgencyMember", 1000);
+            const memberExists = existingMembers.some((m: any) => 
+              (m.agent_id === agentId || m.agent?.objectId === agentId) &&
+              (m.host_id === hostId || m.host?.objectId === hostId) &&
+              m.client_status === "joined"
+            );
+            
+            if (memberExists) {
+              console.log("[Agency] Member already exists, skipping creation");
+            } else {
+              // Create agency member record
+              const newMember = await createObject("AgencyMember", {
+                agent_id: agentId,
+                host_id: hostId,
+                client_status: "joined",
+                level: 0,
+                live_duration: 0,
+                party_host_duration: 0,
+                party_crown_duration: 0,
+                matching_duration: 0,
+                total_points_earnings: 0,
+                live_earnings: 0,
+                match_earnings: 0,
+                party_earnings: 0,
+                game_gratuities: 0,
+                platform_reward: 0,
+                p_coin_earnings: 0,
+              });
+              
+              console.log("[Agency] Member created successfully:", newMember.id);
+            }
+            
+            // Update host user with agent info
+            try {
+              await updateUser(hostId, {
+                agency_role: "agency_client",
+                my_agent_id: agentId,
+              });
+              console.log("[Agency] Host user updated with agent info");
+            } catch (userError) {
+              console.error("[Agency] Error updating host user:", userError);
+              // Continue even if user update fails
+            }
+          }
+          
+          // Log the action
+          const currentUser = await getCurrentUser();
+          await createSystemLog({
+            adminId: currentUser?.id || "unknown",
+            adminName: currentUser?.username || "unknown",
+            action: input.status === "accepted" ? "قبول دعوة وكالة" : "رفض دعوة وكالة",
+            entityType: "AgencyInvitation",
+            entityId: input.invitationId,
+            details: { 
+              status: input.status,
+              agentId: invitation.agent_id || invitation.agent?.objectId,
+              hostId: invitation.host_id || invitation.host?.objectId
+            }
+          });
+          
+          return updatedInvitation;
+        } catch (error) {
+          console.error("Error updating agency invitation:", error);
+          throw error;
+        }
+      }),
+
+    // Remove agency member
+    removeAgencyMember: publicProcedure
+      .input(z.object({
+        memberId: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          // Get member info before deletion
+          const members = await queryClass("AgencyMember", 1000);
+          const member = members.find((m: any) => 
+            m.objectId === input.memberId || m.id === input.memberId
+          );
+          
+          // Update member status to 'left'
+          await updateObject("AgencyMember", input.memberId, {
+            client_status: "left",
+          });
+          
+          // Update user to remove agency info
+          if (member) {
+            const hostId = member.host_id || member.host?.objectId;
+            if (hostId) {
+              await updateUser(hostId, {
+                agency_role: "no_agency",
+                my_agent_id: "",
+              });
+            }
+          }
+          
+          // Log the action
+          const currentUser = await getCurrentUser();
+          await createSystemLog({
+            adminId: currentUser?.id || "unknown",
+            adminName: currentUser?.username || "unknown",
+            action: "إزالة عضو من الوكالة",
+            entityType: "AgencyMember",
+            entityId: input.memberId,
+            details: { hostId: member?.host_id }
+          });
+          
+          return { success: true };
+        } catch (error) {
+          console.error("Error removing agency member:", error);
+          throw error;
+        }
+      }),
+
+    // Update agency member
+    updateAgencyMember: publicProcedure
+      .input(z.object({
+        memberId: z.string(),
+        data: z.record(z.any()),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const updatedMember = await updateObject("AgencyMember", input.memberId, input.data);
+          
+          // Log the action
+          const currentUser = await getCurrentUser();
+          await createSystemLog({
+            adminId: currentUser?.id || "unknown",
+            adminName: currentUser?.username || "unknown",
+            action: "تحديث بيانات عضو الوكالة",
+            entityType: "AgencyMember",
+            entityId: input.memberId,
+            details: input.data
+          });
+          
+          return updatedMember;
+        } catch (error) {
+          console.error("Error updating agency member:", error);
+          throw error;
+        }
+      }),
+
+    // Assign agent role to user
+    assignAgentRole: publicProcedure
+      .input(z.object({
+        userId: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const updatedUser = await updateUser(input.userId, {
+            agency_role: "agent",
+          });
+          
+          // Log the action
+          const currentUser = await getCurrentUser();
+          await createSystemLog({
+            adminId: currentUser?.id || "unknown",
+            adminName: currentUser?.username || "unknown",
+            action: "تعيين وكيل جديد",
+            entityType: "User",
+            entityId: input.userId,
+            details: { agency_role: "agent" }
+          });
+          
+          return updatedUser;
+        } catch (error) {
+          console.error("Error assigning agent role:", error);
+          throw error;
+        }
+      }),
+
+    // Remove agent role from user
+    removeAgentRole: publicProcedure
+      .input(z.object({
+        userId: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const updatedUser = await updateUser(input.userId, {
+            agency_role: "no_agency",
+          });
+          
+          // Log the action
+          const currentUser = await getCurrentUser();
+          await createSystemLog({
+            adminId: currentUser?.id || "unknown",
+            adminName: currentUser?.username || "unknown",
+            action: "إزالة صلاحية الوكيل",
+            entityType: "User",
+            entityId: input.userId,
+            details: { agency_role: "no_agency" }
+          });
+          
+          return updatedUser;
+        } catch (error) {
+          console.error("Error removing agent role:", error);
+          throw error;
+        }
+      }),
+
+    // Get agency stats
+    getAgencyStats: publicProcedure.query(async () => {
+      try {
+        const users = await getAllUsers();
+        const members = await queryClass("AgencyMember", 1000);
+        const invitations = await queryClass("AgencyInvitation", 1000);
+        
+        const agents = users.filter((u: any) => 
+          u.agency_role === 'agent' || u.agencyRole === 'agent'
+        );
+        const activeMembers = members.filter((m: any) => m.client_status === 'joined');
+        const pendingInvitations = invitations.filter((i: any) => i.invitation_status === 'pending');
+        
+        const totalEarnings = members.reduce((sum: number, m: any) => 
+          sum + (m.total_points_earnings || 0), 0
+        );
+        const totalLiveDuration = members.reduce((sum: number, m: any) => 
+          sum + (m.live_duration || 0), 0
+        );
+        
+        return {
+          totalAgents: agents.length,
+          totalMembers: activeMembers.length,
+          pendingInvitations: pendingInvitations.length,
+          totalEarnings,
+          totalLiveDuration,
+          acceptedInvitations: invitations.filter((i: any) => i.invitation_status === 'accepted').length,
+          declinedInvitations: invitations.filter((i: any) => i.invitation_status === 'declined').length,
+        };
+      } catch (error) {
+        console.error("Error fetching agency stats:", error);
+        return {
+          totalAgents: 0,
+          totalMembers: 0,
+          pendingInvitations: 0,
+          totalEarnings: 0,
+          totalLiveDuration: 0,
+          acceptedInvitations: 0,
+          declinedInvitations: 0,
+        };
+      }
+    }),
   }),
 });
 

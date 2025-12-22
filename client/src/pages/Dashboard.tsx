@@ -56,6 +56,7 @@ import {
   Film,
   FileText,
   PhoneCall,
+  Building2,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { APP_TITLE } from "@/const";
@@ -87,6 +88,7 @@ import StoriesManagement from "@/components/StoriesManagement";
 import FollowManagement from "@/components/FollowManagement";
 import FavoritesManagement from "@/components/FavoritesManagement";
 import VisitsManagement from "@/components/VisitsManagement";
+import AgencyManagement from "@/components/AgencyManagement";
 
 type MenuOption = 
   | "dashboard" 
@@ -115,7 +117,8 @@ type MenuOption =
   | "stories"
   | "follow"
   | "favorites"
-  | "visits";
+  | "visits"
+  | "agencies";
   
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -781,6 +784,8 @@ case "favorites":
   return <FavoritesManagement />;
 case "visits":
   return <VisitsManagement />;
+case "agencies":
+  return <AgencyManagement />;
       case "users":
         return <UsersManagement />;
       case "frames":
@@ -1135,6 +1140,20 @@ case "visits":
                 isActive={activeMenu === "settings"}
                 onClick={() => setActiveMenu("settings")}
               />
+              
+              {/* قسم الوكالات */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-4">
+                  إدارة الوكالات
+                </h3>
+                <MenuItem
+                  icon={Building2}
+                  label="الوكالات والوكلاء"
+                  menuId="agencies"
+                  isActive={activeMenu === "agencies"}
+                  onClick={() => setActiveMenu("agencies")}
+                />
+              </div>
               
               {/* قسم إدارة النظام */}
               <div className="mt-6 pt-4 border-t border-gray-200">
